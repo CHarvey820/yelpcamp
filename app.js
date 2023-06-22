@@ -9,6 +9,7 @@ const path = require('path');
 const mongoose = require('mongoose');
 const methodOverride = require('method-override');
 const Campground = require('./models/campground');
+const ejsMate = require('ejs-mate');
 
 /**
  * Mongoose setup
@@ -24,6 +25,7 @@ database.once("open", () => {
 /**
  * ejs setup
  */
+app.engine('ejs', ejsMate);
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
@@ -86,6 +88,9 @@ app.put('/campgrounds/:id', async (request, response) => {
     response.redirect(`/campgrounds/${campground._id}`);
 })
 
+/**
+ * Delete Campground
+ */
 app.delete('/campgrounds/:id', async (request, response) => {
     const { id } = request.params;
     await Campground.findByIdAndDelete(id);
