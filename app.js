@@ -7,9 +7,26 @@ const express = require('express');
 const app = express();
 const path = require('path');
 const mongoose = require('mongoose');
+const Joi = require('joi');
+const campgroundSchema = require('./schemas.js');
+const reviewSchema = require('./schemas.js');
+const ExpressError = require('./utils/ExpressError');
 const methodOverride = require('method-override');
 const Campground = require('./models/campground');
 const ejsMate = require('ejs-mate');
+const session = require('express-session');
+const flash = require('connect-flash');
+const Review = require("./models/review");
+const passport = require('passport');
+const LocalStrategy = require('passport-local');
+const User = require('./models/user');
+
+/**
+ * Include Router components
+ */
+const campgroundRoutes = require('./routes/campgrounds');
+const reviewRoutes = require('./routes/reviews');
+const userRoutes = require('./routes/users');
 
 /**
  * Mongoose setup
@@ -32,6 +49,34 @@ app.set('views', path.join(__dirname, 'views'));
 app.use(express.urlencoded({ extended: true }));
 app.use(methodOverride('_method'));
 
+const sessionConfig = {
+    secret: 'secret',
+    resave: false,
+    saveUninitialized: true,
+    cookie: {
+        httpOnly: true,
+        expires: Date.now() + 1000 * 60 * 60 * 24 * 7,
+        maxAge: 1000 * 60 * 60 * 24 * 7
+    }
+}
+app.use(session(sessionConfig));
+app.use(flash());
+/*app.use(express.static(path.join(__dirname,'public')));
+*/
+
+app.use(passport.initialize());
+app.use(passport.session());
+passport.use(new LocalStrategy(User.authenticate()));
+
+passport.serializeUser(User.serializeUser());
+passport.deserializeUser(User.deserializeUser());
+
+app.use((request, response, next) => {
+    response.locals.success = request.flash('success');
+    response.locals.error = request.flash('error');
+    next();
+})
+
 /**
  * Initialize basic route
  */
@@ -39,64 +84,23 @@ app.get('/', (request, response) => {
     response.render('home');
 })
 
-/**
- * All campgrounds
- */
-app.get('/campgrounds', async (request, response) => {
-    const campgrounds = await Campground.find({});
-    response.render('campgrounds/index', { campgrounds });
+app.use('/campgrounds', campgroundRoutes);
+app.use('/campgrounds/:id/reviews', reviewRoutes);
+app.use('/', userRoutes);
+
+app.all('*', (request, response, next) => {
+    next(new ExpressError('Page Not Found', 404));
 })
 
 /**
- * New Campground page
+ * Action for catchAsync when an error occurs
  */
-app.get('/campgrounds/new', (request, response) => {
-    response.render('campgrounds/new');
-})
+app.use((error, request, response, next) => {
+    const { statusCode = 500 } = error;
+    if (!error.message) error.message = 'An Error has Occurred';
+    response.status(statusCode).render('error', { error });
 
-/**
- * POST new campground
- */
-app.post('/campgrounds', async (request, response) => {
-    const campground = new Campground(request.body.campground);
-    await campground.save();
-    response.redirect(`/campgrounds/${campground._id}`);
 })
-
-/**
- * Single Campground
- */
-app.get('/campgrounds/:id', async (request, response) => {
-    const campground = await Campground.findById(request.params.id);
-    response.render('campgrounds/show', { campground });
-})
-
-/**
- * Edit campground
- */
-app.get('/campgrounds/:id/edit', async (request, response) => {
-    const campground = await Campground.findById(request.params.id);
-    response.render('campgrounds/edit', { campground });
-})
-
-/**
- * PUT to update edited campground
- */
-app.put('/campgrounds/:id', async (request, response) => {
-    const { id } = request.params;
-    const campground = await Campground.findByIdAndUpdate(id, { ...request.body.campground });
-    response.redirect(`/campgrounds/${campground._id}`);
-})
-
-/**
- * Delete Campground
- */
-app.delete('/campgrounds/:id', async (request, response) => {
-    const { id } = request.params;
-    await Campground.findByIdAndDelete(id);
-    response.redirect('/campgrounds');
-})
-
 
 app.listen(3000, () => {
     console.log('Running on port 3000');
