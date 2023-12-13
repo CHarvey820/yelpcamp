@@ -21,12 +21,7 @@ const passport = require('passport');
 const LocalStrategy = require('passport-local');
 const User = require('./models/user');
 
-/**
- * Include Router components
- */
-const campgroundRoutes = require('./routes/campgrounds');
-const reviewRoutes = require('./routes/reviews');
-const userRoutes = require('./routes/users');
+
 
 /**
  * Mongoose setup
@@ -77,6 +72,13 @@ app.use((request, response, next) => {
     response.locals.error = request.flash('error');
     next();
 })
+
+/**
+ * Include Router components
+ */
+const campgroundRoutes = require('./routes/campgrounds');
+const reviewRoutes = require('./routes/reviews');
+const userRoutes = require('./routes/users');
 
 /**
  * Initialize basic route
